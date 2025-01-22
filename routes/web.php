@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\StorageController;
+use App\Http\Controllers\CarruselController;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -18,3 +19,9 @@ Route::get('/', function () {
 });
 
 Route::get('storage',[StorageController::class,'hideRoot']);
+
+
+
+
+Route::get('/carrusel', [CarruselController::class, 'show']);
+Route::get('/seleccion', [CarruselController::class, 'selectPlayList']);
