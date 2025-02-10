@@ -54,7 +54,7 @@ return [
     |
     */
 
-    'url' => env('APP_URL', 'http://localhost/APM/public/'),
+    'url' => env('APP_URL', 'http://localhost/dirac.arjion.api/public/'),
 
     'asset_url' => env('ASSET_URL'),
 
