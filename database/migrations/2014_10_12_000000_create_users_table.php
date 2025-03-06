@@ -24,8 +24,6 @@ return new class extends Migration
             $table->longText('foto');
             $table->integer('activo');
             $table->string('empresa')->nullable();
-            $table->unsignedBigInteger('id_tipo_usuario')->nullable();
-            $table->foreign('id_tipo_usuario')->references('id')->on('apm_tipo_usuarios');
             $table->rememberToken();
             $table->timestamps();
         });
