@@ -10,6 +10,7 @@ use App\Http\Controllers\API\GacActualizaMonedasController;
 use App\Http\Controllers\API\GacDocumentosCotroller;
 use App\Http\Controllers\API\GacUserController;
 use App\Http\Controllers\API\GacSolicitudController;
+use App\Http\Controllers\API\GacProveedoresController;
 /* info carrusel and banner */
 Route::post('setInfoBanner', [BannerCarruselInfoController::class, 'setInfoBanner']);
 Route::get('getInfoBanner', [BannerCarruselInfoController::class, 'getInfoBanner']);
@@ -53,9 +54,10 @@ Route::get('getGactodosLosUsuarios', [GacCatalogosController::class, 'getGactodo
 Route::get('getGacEmpresas', [GacCatalogosController::class, 'getGacEmpresas']);
 Route::get('getGacTipoCambioDolar', [GacCatalogosController::class, 'getGacTipoCambioDolar']);
 Route::get('getGacCatPerfiles', [GacCatalogosController::class, 'getGacCatPerfiles']);
+Route::get('getGacProveedores', [GacCatalogosController::class, 'getGacProveedores']);
 
-
-
+/* Para los proveedores */
+Route::post('setProveedor', [GacProveedoresController::class, 'setProveedor']);
 
 /* Para actualizar catalogos de moneda */
 Route::post('setGacEquivalenciaMonedaExtDol', [GacActualizaMonedasController::class, 'setGacEquivalenciaMonedaExtDol']);
@@ -63,14 +65,21 @@ Route::post('setGacTipoCambioDolar', [GacActualizaMonedasController::class, 'set
 
 /* Para el analisis de los documentos  */
 Route::post('gacAddMedia', [GacDocumentosCotroller::class, 'gacAddMedia']);
+Route::post('getCritscoAnalisis', [GacDocumentosCotroller::class, 'getCritscoAnalisis']);
+Route::delete('deleteDocument', [GacDocumentosCotroller::class, 'deleteDocument']);
+
 
 /* Para la gestion del usuario que entra al sistema */
+Route::get('getUserIdHash', [GacUserController::class, 'getUserIdHash']);
 Route::get('gacGetUserData', [GacUserController::class, 'gacGetUserData']);
 Route::get('getGetUsuariosAdministradores', [GacUserController::class, 'getGetUsuariosAdministradores']);
+Route::get('getGetUsuariosNomina', [GacUserController::class, 'getGetUsuariosNomina']);
 Route::get('getGetUsuariosPerfilesSolicitud', [GacUserController::class, 'getGetUsuariosPerfilesSolicitud']);
 Route::post('setPerfilSolicitud', [GacUserController::class, 'setPerfilSolicitud']);
+Route::post('setPerfilSolicitudNomina', [GacUserController::class, 'setPerfilSolicitudNomina']);
 Route::get('gacGetSolicitudesJefesArea', [GacUserController::class, 'gacGetSolicitudesJefesArea']);
 Route::get('gacGetSolicitudesAdmins', [GacUserController::class, 'gacGetSolicitudesAdmins']);
+Route::post('addBanco', [GacUserController::class, 'addBanco']);
 
 /* Para lo relacionado con la solicitud perse */
 Route::post('setSolicitud', [GacSolicitudController::class, 'setSolicitud']);
@@ -85,3 +94,9 @@ Route::post('cambioEnSolicitudRevisor', [GacSolicitudController::class, 'cambioE
 Route::post('cambioEnSolicitudPagador', [GacSolicitudController::class, 'cambioEnSolicitudPagador']);
 Route::post('generarZipSolicitud', [GacSolicitudController::class, 'generarZipSolicitud']);
 Route::post('firmarDocumento', [GacSolicitudController::class, 'firmarDocumento']);
+Route::put('atualizaTipoSolicitud', [GacSolicitudController::class, 'atualizaTipoSolicitud']);
+Route::put('actualizaIdConcepto', [GacSolicitudController::class, 'actualizaIdConcepto']);
+Route::post('solicitaCargaDocumental', [GacSolicitudController::class, 'solicitaCargaDocumental']);
+Route::post('notificaRevisoresFiscalesAutorizador', [GacSolicitudController::class, 'notificaRevisoresFiscalesAutorizador']);
+Route::post('notificaNomina', [GacSolicitudController::class, 'notificaNomina']);
+Route::get('notificaPorDias', [GacSolicitudController::class, 'notificaPorDias']);

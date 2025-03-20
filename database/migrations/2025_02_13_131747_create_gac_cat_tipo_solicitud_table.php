@@ -18,6 +18,10 @@ return new class extends Migration
             $table->string('clave');
             $table->string('nombre');
             $table->string('descripcion');
+            $table->integer('requiere_beneficiario')->default(1);
+            $table->integer('requiere_documentos')->default(1);
+            $table->integer('requiere_concepto')->default(1);
+            $table->integer('mostrar_pago_quincenas')->default(0);
             $table->unsignedBigInteger('estatus');
             $table->timestamp('fecha_registro')->nullable();
             $table->unsignedBigInteger('id_usuario');

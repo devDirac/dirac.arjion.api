@@ -11,6 +11,8 @@ class GacDocumentosSolicitud extends Model
     protected $table = 'gac_documentos_solicitud';
     public $timestamps = false;
     protected $fillable = [
+        'fiscal_folio',
+        'rfc',
         'importe',
         'nombre_corto',
         'descripcion',
@@ -25,6 +27,7 @@ class GacDocumentosSolicitud extends Model
         'fecha_registro',
         'es_valido_revisor',
         'comentarios_supervisor',
-        'idrevisor'
+        'idrevisor',
+        'critsCoValidacion'
     ];
 }

@@ -8,91 +8,73 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\API\BaseController as BaseController;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
-use App\Models\GacCatConceptos;
 use App\Models\GacBitacoraEventos;
+use App\Models\ComProveedores;
 
-class GacConceptosController extends BaseController
+class GacProveedoresController extends BaseController
 {
 
-    public function getAllConceptos(Request $request)
+    public function getAllProveedores(Request $request)
     {
         try {
-            $conceptos = GacCatConceptos::get()->all();
-            return $this->sendResponse($conceptos);
+            $proveedores = ComProveedores::get()->all();
+            return $this->sendResponse($proveedores);
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
         }
     }
 
-    public function setConcepto(Request $request)
+    public function setProveedor(Request $request)
     {
         try {
             $input = $request->all();
             $validator = Validator::make($input, [
-                'clave' => 'required',
-                'nombre' => 'required',
-                'descripcion' => 'required',
-                'id_usuario' => 'required'
+                'nombre' => 'required'
 
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
             }
-            $set['clave'] = $request->clave;
             $set['nombre'] = $request->nombre;
-            $set['descripcion'] = $request->descripcion;
-            $set['categoria'] = $request->has('categoria') ? $request->categoria : null;
-            $set['estatus'] = 1;
-            $set['fecha_registro'] = now();
-            $set['id_usuario'] = $request->id_usuario;
-            $concepto = GacCatConceptos::create($set);
-            $setEvnto['evento'] = 'Registro de concepto';
-            $setEvnto['descripcion'] = "Se ha registrado el concepto {$request->nombre}, con id {$concepto->id}";
+            $proveedor = ComProveedores::create($set);
+            $setEvnto['evento'] = 'Registro de proveedor';
+            $setEvnto['descripcion'] = "Se ha registrado el provedor {$request->nombre}, con id {$proveedor->id}";
             $setEvnto['id_usuario'] = $request->id_usuario;
             GacBitacoraEventos::create($setEvnto);
-            return $this->sendResponse('El concepto se ha registrado exitosamente');
+            return $this->sendResponse('El proveedor se ha registrado exitosamente');
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
         }
     }
 
-    public function editConcepto(Request $request)
+    public function editProveedor(Request $request)
     {
         try {
             $input = $request->all();
             $validator = Validator::make($input, [
-                'clave' => 'required',
-                'nombre' => 'required',
-                'descripcion' => 'required',
-                'id_usuario' => 'required',
-                'id' => 'required'
-
+                'nombre' => 'required'
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
             }
-            $concepto = GacCatConceptos::where('id', $request->id)->get()->first();
-            if(!$concepto){
-                return $this->sendError('El concepto que desea actualizar no existe', $validator->errors(), 204);
+            $proveedor = ComProveedores::where('id', $request->id)->get()->first();
+            if(!$proveedor){
+                return $this->sendError('El proveedor que desea actualizar no existe', $validator->errors(), 204);
             }
-            $concepto->clave = $request->clave;
-            $concepto->nombre = $request->nombre;
-            $concepto->descripcion = $request->descripcion;
-            $concepto->categoria = $request->has('categoria') ? $request->categoria : null;
-            $concepto->id_usuario = $request->id_usuario;
-            $concepto->save();
-            $setEvnto['evento'] = 'Actualización de un concepto';
-            $setEvnto['descripcion'] = "Se ha atualizado el concepto {$request->nombre}, con id {$concepto->id}";
+            $proveedor->nombre = $request->nombre;
+            $proveedor->save();
+            $setEvnto['evento'] = 'Actualización de un proveedor';
+            $setEvnto['descripcion'] = "Se ha atualizado el proveedor {$request->nombre}, con id {$proveedor->id}";
             $setEvnto['id_usuario'] = $request->id_usuario;
             GacBitacoraEventos::create($setEvnto);
-            return $this->sendResponse('El concepto se ha actualizado con exito');
+            return $this->sendResponse('El proveedor se ha actualizado con exito');
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
         }
     }
 
 
-    public function deleteConcepto(Request $request)
+    /* public function deleteProveedor(Request $request)
     {
         try {
             $input = $request->all();
@@ -117,7 +99,7 @@ class GacConceptosController extends BaseController
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
         }
-    }
+    } */
 
 
 

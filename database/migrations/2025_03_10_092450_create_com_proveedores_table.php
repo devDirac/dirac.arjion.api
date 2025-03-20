@@ -13,12 +13,10 @@ return new class extends Migration
      */
     public function up()
     {
-        Schema::create('apm_cat_tipo_permiso_usuario', function (Blueprint $table) {
+        Schema::create('com_proveedores', function (Blueprint $table) {
             $table->id();
-            $table->string('nombre');
-            $table->unsignedBigInteger('id_estatus');
-            $table->foreign('id_estatus')->references('id')->on('apm_estatus_catalogos');
-            $table->timestamp('fecha_registro')->nullable();
+            $table->string('nombre'); 
+            $table->timestamps();
         });
     }
 
@@ -29,6 +27,6 @@ return new class extends Migration
      */
     public function down()
     {
-        Schema::dropIfExists('apm_cat_tipo_permiso_usuario');
+        Schema::dropIfExists('com_proveedores');
     }
 };

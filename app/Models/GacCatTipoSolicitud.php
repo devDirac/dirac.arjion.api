@@ -14,8 +14,16 @@ class GacCatTipoSolicitud extends Model
         'clave',
         'nombre',
         'descripcion',
+        'requiere_beneficiario',
+        'requiere_documentos',
+        'requiere_concepto',
+        'mostrar_pago_quincenas',
+        'muestra_notificar_nomina',
+        'requiere_aprobacion_revisor',
+        'dias_notifica_pago',
         'estatus',
         'fecha_registro',
-        'id_usuario'
+        'id_usuario', 
+        'requiere_fechaPago'
     ];
 }

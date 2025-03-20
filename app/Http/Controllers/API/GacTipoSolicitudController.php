@@ -33,6 +33,14 @@ class GacTipoSolicitudController extends BaseController
                 'clave' => 'required',
                 'nombre' => 'required',
                 'descripcion' => 'required',
+                'requiere_fechaPago'=> 'required',
+                'requiere_beneficiario'=> 'required',
+                'requiere_documentos'=> 'required',
+                'requiere_concepto'=> 'required',
+                'requiere_aprobacion_revisor'=> 'required',
+                'mostrar_pago_quincenas'=> 'required',
+                'muestra_notificar_nomina'=> 'required',
+                'dias_notifica_pago'=> 'required',
                 'id_usuario' => 'required'
 
             ]);
@@ -42,6 +50,14 @@ class GacTipoSolicitudController extends BaseController
             $set['clave'] = $request->clave;
             $set['nombre'] = $request->nombre;
             $set['descripcion'] = $request->descripcion;
+            $set['requiere_fechaPago'] = $request->requiere_fechaPago;
+            $set['requiere_beneficiario'] = $request->requiere_beneficiario;
+            $set['requiere_documentos'] = $request->requiere_documentos;
+            $set['requiere_concepto'] = $request->requiere_concepto;
+            $set['mostrar_pago_quincenas'] = $request->mostrar_pago_quincenas;
+            $set['muestra_notificar_nomina'] = $request->muestra_notificar_nomina;
+            $set['requiere_aprobacion_revisor'] = $request->requiere_aprobacion_revisor;
+            $set['dias_notifica_pago'] = $request->dias_notifica_pago;
             $set['estatus'] = 1;
             $set['fecha_registro'] = now();
             $set['id_usuario'] = $request->id_usuario;
@@ -64,6 +80,14 @@ class GacTipoSolicitudController extends BaseController
                 'clave' => 'required',
                 'nombre' => 'required',
                 'descripcion' => 'required',
+                'requiere_fechaPago'=> 'required',
+                'requiere_beneficiario'=> 'required',
+                'requiere_documentos'=> 'required',
+                'requiere_concepto'=> 'required',
+                'mostrar_pago_quincenas'=> 'required',
+                'muestra_notificar_nomina'=> 'required',
+                'requiere_aprobacion_revisor'=> 'required',
+                'dias_notifica_pago'=> 'required',
                 'id_usuario' => 'required',
                 'id' => 'required'
 
@@ -78,6 +102,14 @@ class GacTipoSolicitudController extends BaseController
             $tiposSolicitud->clave = $request->clave;
             $tiposSolicitud->nombre = $request->nombre;
             $tiposSolicitud->descripcion = $request->descripcion;
+            $tiposSolicitud->requiere_fechaPago = $request->requiere_fechaPago;
+            $tiposSolicitud->requiere_beneficiario = $request->requiere_beneficiario;
+            $tiposSolicitud->requiere_documentos = $request->requiere_documentos;
+            $tiposSolicitud->requiere_concepto = $request->requiere_concepto;
+            $tiposSolicitud->requiere_aprobacion_revisor = $request->requiere_aprobacion_revisor;
+            $tiposSolicitud->mostrar_pago_quincenas = $request->mostrar_pago_quincenas;
+            $tiposSolicitud->muestra_notificar_nomina = $request->muestra_notificar_nomina;
+            $tiposSolicitud->dias_notifica_pago = $request->dias_notifica_pago;
             $tiposSolicitud->id_usuario = $request->id_usuario;
             $tiposSolicitud->save();
             $setEvnto['evento'] = 'Actualización de tipo de solicitud';

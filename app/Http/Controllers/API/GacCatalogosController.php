@@ -13,6 +13,7 @@ use App\Models\GacCatFormaPago;
 use App\Models\GacCatConceptos;
 use App\Models\GacTipoCambioDolar;
 use App\Models\GacCatPerfiles;
+use App\Models\ComProveedores;
 
 class GacCatalogosController extends BaseController
 {
@@ -60,9 +61,9 @@ class GacCatalogosController extends BaseController
     public function getGacBeneficiarios(Request $request){
         try {
             $input = $request->all();
+            /* iNOUT DE  QUE MANBDA  EL USUARIO LA FECHA */
             $validator = Validator::make($input, [
                 'id_director_area' => 'required'
-
             ]);
             if ($validator->fails()) {
                 return $this->sendError('El id del area es requerido', $validator->errors(), 500);
@@ -91,7 +92,7 @@ class GacCatalogosController extends BaseController
            return $this->sendResponse($catEmpresas);
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
-        }
+        }        
     }
 
     public function getGacTipoCambioDolar(){
@@ -103,7 +104,6 @@ class GacCatalogosController extends BaseController
         }
     }
 
-
     public function getGacCatPerfiles(){
         try {
            $catPerfiles =  GacCatPerfiles::get()->all();
@@ -113,6 +113,18 @@ class GacCatalogosController extends BaseController
         }
     }
 
+    public function getGacProveedores(){
+        try {
+           $proveedores =  ComProveedores::get()->all();
+           return $this->sendResponse($proveedores);
+        } catch (\Throwable $th) {
+            return $this->sendError('Error', $th, 500);
+        }
+    }
+ 
+    public function a(){
+
+    }
     
 
 }

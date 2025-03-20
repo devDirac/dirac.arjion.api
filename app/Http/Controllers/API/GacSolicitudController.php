@@ -14,11 +14,14 @@ use App\Models\GacCatEstatusSolicitud;
 use App\Models\GacTrenAutorizadoresSolicitud;
 use App\Utils\SmsSend;
 use App\Mail\CorreoSolicitudGac;
+use App\Mail\CorreoSolicitudNotificaNominaGac;
 use App\Models\GacDocumentosSolicitud;
+use App\Models\GacCuentasBancariasUsuario;
 use App\Models\GacPerfilSolicitud;
 use Illuminate\Support\Facades\Mail;
 use ZipArchive;
 use File;
+use App\Models\GacNotificaNomina;
 
 class GacSolicitudController extends BaseController
 {
@@ -31,6 +34,21 @@ class GacSolicitudController extends BaseController
         $this->senWhats = new SmsSend($this->ultramsg_token, $this->instance_id);   
     }
 
+    private function cifrarTexto($texto, $claveSecreta) {
+        $metodo = 'AES-256-CBC';
+        $iv = openssl_random_pseudo_bytes(openssl_cipher_iv_length($metodo));
+        $textoCifrado = openssl_encrypt($texto, $metodo, $claveSecreta, 0, $iv);
+        return rtrim(strtr(base64_encode($textoCifrado . '::' . $iv), '+/', '-_'), '=');
+    }
+    
+    private function descifrarTexto($textoCifrado, $claveSecreta) {
+        $metodo = 'AES-256-CBC';
+        $textoCifrado = base64_decode(strtr($textoCifrado, '-_', '+/') . str_repeat('=', (4 - strlen($textoCifrado) % 4) % 4));
+        list($textoEncriptado, $iv) = explode('::', $textoCifrado, 2);
+        return openssl_decrypt($textoEncriptado, $metodo, $claveSecreta, 0, $iv);
+    }
+
+    
     public function getDetalleSolicitud(Request $request){
         try{
             $input = $request->all();
@@ -41,20 +59,21 @@ class GacSolicitudController extends BaseController
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
             }
-            $solicitudFind = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            $id_solicitud = $this->descifrarTexto($request->id_solicitud,env('CLAVE_HASHIG'));
+            $solicitudFind = GacSolicitud::where('id',$id_solicitud)->get()->first();
             if(!$solicitudFind){
                 return $this->sendError('La solicitud a la que estas intentando acceder no existe', $validator->errors(), 404);
             }
-            $solicitud = DB::select('select a.*, b.nombre as tipo_solicitud, c.nombre as forma_pago , 
+            $solicitud = DB::select('select a.*,b.requiere_aprobacion_revisor, b.nombre as tipo_solicitud, b.requiere_beneficiario, b.requiere_documentos, b.requiere_concepto,b.mostrar_pago_quincenas, b.muestra_notificar_nomina , c.nombre as forma_pago , 
                                      d.nombre as estatus, e.nombre as concepto , f.pais as pais_moneda,
                                      f.moneda,f.valor_en_dolar as valor_en_dolar_moneda,f.fecha as fecha_moneda
                                      from gac_solicitud a 
                                      inner join gac_cat_tipo_solicitud b on a.id_tipo_solicitud = b.id
                                      inner join gac_cat_forma_pago c on a.id_forma_pago = c.id
                                      inner join gac_cat_estatus_solicitud d on a.id_estatus = d.id
-                                     inner join gac_cat_conceptos e on a.id_concepto = e.id
+                                     left join gac_cat_conceptos e on a.id_concepto = e.id
                                      inner join gac_equivalencia_moneda_ext_dol f on a.id_moneda = f.id
-                                     where a.id = ? ', [$request->id_solicitud]);
+                                     where a.id = ? ', [$id_solicitud]);
             foreach ($solicitud as $key => $value) {
                 $documentos = GacDocumentosSolicitud::where('id_solicitud',$value->id)->get()->all();
                 $solicitud[$key]->documentos = $documentos;
@@ -66,8 +85,12 @@ class GacSolicitudController extends BaseController
                     $autorizadores[$keyAutorizadores]->nombreUsuario = $usuarioAutorizador->nombre .' '. $usuarioAutorizador->apellidos;
                 }
                 $solicitud[$key]->autorizadores = $autorizadores;
+                $infoBancaria = GacCuentasBancariasUsuario::where('banco',$value->banco)->where('cuenta',$value->cuenta)->where('clabe',$value->clabe)->where('id_usuario',$value->solicita)->get()->first();
+                $solicitud[$key]->infoBancaria = $infoBancaria;
             }
-            $autorizador = GacTrenAutorizadoresSolicitud::where('id_usuario',$request->id_autorizador)->where('id_solicitud',$request->id_solicitud)->get()->first();
+            $id_autorizador = $this->descifrarTexto($request->id_autorizador,env('CLAVE_HASHIG'));
+            
+            $autorizador = GacTrenAutorizadoresSolicitud::where('id_usuario',$id_autorizador)->where('id_solicitud',$id_solicitud)->get()->first();
             if($autorizador){
                 $autorizador->fecha_visto = now();
                 $autorizador->save();
@@ -79,28 +102,31 @@ class GacSolicitudController extends BaseController
     }
 
     private function establecerValoresSolicitud($request){
-        $estatus = GacCatEstatusSolicitud::where('nombre', 'Registrada')->get()->first();
-        $set['solicita'] = $request->solicita; // ok
-        $set['beneficiario'] = $request->id_beneficiario; // ok
-        $set['id_proyecto'] = $request->id_proyecto; // ok
-        $set['id_moneda'] = $request->id_moneda; // ok 
-        $set['importe'] = $request->importe; // ok
-        $set['importe_pesos'] = $request->importe_pesos; // ok 
-        $set['descripcion'] = $request->descripcion; // ok 
-        $set['id_tipo_solicitud'] = $request->id_tipo_solicitud; // ok 
-        $set['id_forma_pago'] = $request->id_forma_pago; // ok 
+        $estatus = GacCatEstatusSolicitud::where('nombre', 'En proceso')->get()->first();
+        $set['solicita'] = $request->solicita; 
+        $set['beneficiario'] = $request->has('id_beneficiario') && $request->id_beneficiario !== '' ?  $request->id_beneficiario : null; 
+        $set['id_proyecto'] = $request->id_proyecto; 
+        $set['id_moneda'] = $request->id_moneda;  
+        $set['importe'] = $request->importe; 
+        $set['importe_pesos'] = $request->importe_pesos;  
+        $set['descripcion'] = $request->descripcion;  
+        $set['id_tipo_solicitud'] = $request->id_tipo_solicitud;  
+        $set['id_forma_pago'] = $request->id_forma_pago;  
         $set['banco'] = $request->banco;//ok
         $set['cuenta'] = $request->cuenta;//ok 
         $set['clabe'] = $request->clabe;//ok
+        $set['fecha_pago'] = $request->has('fecha_pago') && $request->fecha_pago !== '' ? $request->fecha_pago : null;//ok
         $set['fecha_solicitud'] = $request->fecha_solicitud;//ok 
         $set['id_estatus'] = $estatus->id; // SE ASIGGNA EL ESTATUS 1 DE REGISTRADA ok 
-        $set['proyecto_sr'] = $request->has('proyecto_sr') && $request->proyecto_sr !== '' ? $request->proyecto_sr : null; // OK 
-        $set['id_empresa'] = $request->id_empresa; // OK 
-        $set['proveedor'] = $request->has('proveedor') && $request->proveedor !== '' ? $request->proveedor : null; // OK  
-        $set['id_concepto'] = $request->id_concepto; // OK 
+        $set['proyecto_sr'] = $request->has('proyecto_sr') && $request->proyecto_sr !== '' ? $request->proyecto_sr : null;  
+        $set['id_empresa'] = $request->id_empresa;  
+        $set['proveedor'] = $request->has('proveedor') && $request->proveedor !== '' ? $request->proveedor : null;   
+        $set['id_concepto'] = $request->has('id_concepto') && $request->id_concepto !== '' ? $request->id_concepto : null;  
         $set['id_usuario_revisor'] = null;
         $set['id_usuario_autorizador'] = null;
         $set['id_usuario_pagada'] = null;
+        $set['quincenas_numero'] = $request->has('quincenas_numero') && $request->quincenas_numero !== '' ? $request->quincenas_numero  : null;
+        $set['quincenas_valor'] = $request->has('quincenas_valor') && $request->quincenas_valor !== '' ? $request->quincenas_valor  : null;
         return $set;
     }
 
@@ -124,15 +150,41 @@ class GacSolicitudController extends BaseController
         return $primerNotificacion;
     }
 
+    private function enviaMensajeSolicitaDescuentoNomina($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $descripcion){
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
+        $nombre = $user->nombre . ' ' . $user->apellidos;
+        Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
+                $idUsiario,
+                $user->nombre . ' ' . $user->apellidos, 
+                "DAF solicita descuento via nomina",
+                "Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud", 
+                $idSolicitud_,
+                $solicitudimporte,
+                $solicitudsolicitante,
+                $descripcion
+            ));            
+        $to = "+525635309370"/* "+52{$user->telefono}" */;
+        $body = "Hola {$nombre}, arjion te notifica";
+        $body1 = "DAF solicita descuento via nomina";
+        $body2 = 'Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud link:';
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $this->senWhats->sendChatMessage($to, $body);
+        $this->senWhats->sendChatMessage($to, $body1);
+        $this->senWhats->sendChatMessage($to, $body2);
+        $this->senWhats->sendLinkMessage($to, $bodyLink);
+    }
+
     private function enviaMensajeSolicitaAutorizacion($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario){
-        $idUsiario = $user['id_usuario'];
+        $idUsiario = $this->cifrarTexto($user['id_usuario'], env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user['nombre'] . ' ' . $user['apellidos'];
         Mail::to(/* $user['correo'] */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user['id_usuario'],
+                $idUsiario,
                 $user['nombre'] . ' ' . $user['apellidos'], 
                 "Validacion de gasto a comprobar" , 
                 "Se requiere de tu atención para la aprobación de una solicitud de gastos", 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -141,7 +193,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -149,14 +201,15 @@ class GacSolicitudController extends BaseController
     }
 
     private function enviaMensajeSolicitaAutorizacionDos($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Validacion de gasto a comprobar" , 
                 "Se requiere de tu atención para la aprobación de una solicitud de gastos", 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -165,24 +218,24 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
         $this->senWhats->sendLinkMessage($to, $bodyLink);
     }
 
-
     /* Mensaje al pagador */
     private function enviaMensajePagador($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario, $nombreRevisor){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Solicitud de gasto aprobada por el revisor fiscal" , 
                 "El revisor fiscal {$nombreRevisor} ha aprobado la solicitud de gasto", 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -191,7 +244,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Solicitud de gasto aprobada por el revisor fiscal";
         $body2 = "El revisor fiscal {$nombreRevisor} ha aprobado la solicitud de gasto, detalle en el siguiente link:";
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -199,14 +252,15 @@ class GacSolicitudController extends BaseController
     }
 
     private function enviaMensajeCreadorAprobacion($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario, $mensaje ){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Este es el comprobante de tu solicitud ", 
                 $mensaje, 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -215,7 +269,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = $mensaje;
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -223,14 +277,15 @@ class GacSolicitudController extends BaseController
     }
 
     private function enviaMensajeCreador($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Comprobante de solicitud de gasto a comprobar" , 
                 "Este es el comprobante de tu solicitud ", 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -239,7 +294,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Comprobante de solicitud de gasto a comprobar";
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -247,14 +302,15 @@ class GacSolicitudController extends BaseController
     }
 
     private function enviaMensajeBeneficiarioAprobacion($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario, $mensaje){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Este es el comprobante de tu solicitud ", 
                 $mensaje, 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -263,7 +319,7 @@ class GacSolicitudController extends BaseController
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = $mensaje;
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
-            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
             $this->senWhats->sendChatMessage($to, $body);
             $this->senWhats->sendChatMessage($to, $body1);
             $this->senWhats->sendChatMessage($to, $body2);
@@ -271,14 +327,15 @@ class GacSolicitudController extends BaseController
     }
 
     private function enviaMensajeBeneficiario($user, $idSolicitud, $solicitudimporte, $solicitudsolicitante, $solicitudbeneficiario){
-        $idUsiario = $user->id_usuario;
+        $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG'));
+        $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
-                $user->id_usuario,
+                $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "El usuario ".  $solicitudsolicitante . ", creo una solicitud para ti, "."Comprobante de solicitud de gasto a comprobar" , 
                 "Este es el comprobante de tu solicitud ", 
-                $idSolicitud,
+                $idSolicitud_,
                 $solicitudimporte,
                 $solicitudsolicitante,
                 $solicitudbeneficiario
@@ -287,35 +344,34 @@ class GacSolicitudController extends BaseController
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = "El usuario ".  $solicitudsolicitante . ", creo una solicitud para ti, "."Comprobante de solicitud de gasto a comprobar";
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
-            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud}";
+            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
             $this->senWhats->sendChatMessage($to, $body);
             $this->senWhats->sendChatMessage($to, $body1);
             $this->senWhats->sendChatMessage($to, $body2);
             $this->senWhats->sendLinkMessage($to, $bodyLink);
     }
 
-    public function setSolicitud(Request $request)
-    {
-        /* try { */
+    public function setSolicitud(Request $request)  {
+        try {
             $input = $request->all();
             $validator = Validator::make($input, [
-                'solicita' => 'required', // ok 
-                'id_beneficiario' => 'required', // ok 
-                'id_proyecto' => 'required', // ok 
-                'id_moneda' => 'required', // ok 
-                'importe' => 'required',// ok
+                'solicita' => 'required',  
+                //'id_beneficiario' => 'required',  
+                'id_proyecto' => 'required',  
+                'id_moneda' => 'required',  
+                'importe' => 'required',
                 'importe_pesos' => 'required', 
-                'descripcion' => 'required', // ok 
-                'id_tipo_solicitud' => 'required', // ok 
-                'id_forma_pago' => 'required', // ok 
-                'banco' => 'required', // ok 
-                'cuenta' => 'required', // ok 
-                'clabe' => 'required', // ok 
-                'fecha_solicitud' => 'required', // ok
-                'id_empresa' => 'required', // ok 
-                'id_concepto' => 'required', // ok 
-                'id_usuario' => 'required', // ok
-                'organigrama' => 'required', // ok
+                'descripcion' => 'required',  
+                'id_tipo_solicitud' => 'required',  
+                'id_forma_pago' => 'required',  
+                'banco' => 'required',  
+                'cuenta' => 'required',  
+                'clabe' => 'required',
+                'fecha_solicitud' => 'required', 
+                'id_empresa' => 'required',  
+                //'id_concepto' => 'required',  
+                'id_usuario' => 'required', 
+                'organigrama' => 'required', 
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
@@ -324,14 +380,14 @@ class GacSolicitudController extends BaseController
             $solicitud = GacSolicitud::create($set);
             $notifica = $this->guardAutorizadores($request->organigrama, $solicitud->id);
             if( $notifica['correo'] !== ''){
-                $usuario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
+            $usuario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
                 $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
                 $this->enviaMensajeSolicitaAutorizacion(
                     $notifica, 
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuario->nombre .' ' . $usuario->apellidos,
-                    $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                    $solicitud->descripcion,
                 );
 
             }
@@ -342,7 +398,7 @@ class GacSolicitudController extends BaseController
                 $solicitud->id, 
                 $solicitud->importe_pesos,
                 $usuario->nombre .' ' . $usuario->apellidos,
-                $usuarioBeneficiario ?  $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                $solicitud->descripcion,
             );
 
             if($usuarioBeneficiario){
@@ -352,7 +408,7 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuario->nombre .' ' . $usuario->apellidos,
-                        $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                        $solicitud->descripcion,
                     );
                 }
             }
@@ -365,9 +421,9 @@ class GacSolicitudController extends BaseController
             $setEvnto['id_ref'] = $solicitud->id;
             GacBitacoraEventos::create($setEvnto);
             return $this->sendResponse($solicitud);
-        /* } catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
-        } */
+        }
     }
 
     public function setDocumentoSolicitud(Request $request){
@@ -375,6 +431,8 @@ class GacSolicitudController extends BaseController
             $input = $request->all();
             $validator = Validator::make($input, [
                 'importe' => 'required',
+                'fiscal_folio' => 'required',
+                'rfc' => 'required',
                 'nombre_corto' => 'required',
                 'descripcion' => 'required',
                 'tipo_moneda' => 'required',
@@ -384,11 +442,14 @@ class GacSolicitudController extends BaseController
                 'id_solicitud' => 'required',
                 'id_usuario' => 'required',
                 'file' => 'required',
+                'critsCoValidacion'=> 'required',
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
             }
             $insertDocumento['importe'] = $request->importe;
+            $insertDocumento['fiscal_folio'] = $request->fiscal_folio;
+            $insertDocumento['rfc'] = $request->rfc;
             $insertDocumento['nombre_corto'] = $request->nombre_corto;
             $insertDocumento['descripcion'] = $request->descripcion;
             $insertDocumento['tipo_moneda'] = $request->tipo_moneda;
@@ -399,6 +460,7 @@ class GacSolicitudController extends BaseController
             $insertDocumento['id_solicitud'] = $request->id_solicitud;
             $insertDocumento['id_usuario'] = $request->id_usuario;
             $insertDocumento['estatus'] = 1;
+            $insertDocumento['critsCoValidacion'] = $request->critsCoValidacion;
             $insertDocumento['fecha_registro'] = now();
             $doc = GacDocumentosSolicitud::create($insertDocumento);
             /* Guarda documento */
@@ -415,7 +477,6 @@ class GacSolicitudController extends BaseController
         }
     }
 
-
     public function apruebaSolicitudJefeDirecto(Request $request){
         try {
             $input = $request->all();
@@ -425,7 +486,7 @@ class GacSolicitudController extends BaseController
                 'usuario_nombre' => 'required', // el nombre del usuario que aprueba o rechaza la solicitud
                 'id_usuario_next' => 'required', // el id del siguiente en la lista de autorizadores
                 'aprueba' => 'required', // para saber si aprueba o no  la solicitud y no andar ahi repitiendo cosas
-                'comentarios' => 'required'
+                'comentarios' => 'required'// PARA GUARDAR los comentarios del jefe directo 
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
@@ -433,8 +494,8 @@ class GacSolicitudController extends BaseController
             $autorizador = GacTrenAutorizadoresSolicitud::where('id_usuario',$request->id_usuario)->where('id_solicitud',$request->id_solicitud)->get()->first();
             if(!$autorizador){
                 return $this->sendError('La solicitud no se encontro', [], 404);
-            } 
-            
+            }
+
             /* Actualiza el registro indicando que si se autorizo */
             $autorizador->fecha_accion = now();
             $autorizador->autorizo = $request->aprueba;
@@ -447,6 +508,7 @@ class GacSolicitudController extends BaseController
                 $solicitud->id_estatus = 3; // solicitud rechazada
                 $solicitud->save();
             }
+            
             $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
             $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
             if($request->aprueba === true){
@@ -460,7 +522,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                            $solicitud->descripcion,
                         );
                     }
                 }else{
@@ -473,7 +535,7 @@ class GacSolicitudController extends BaseController
                                 $solicitud->id, 
                                 $solicitud->importe_pesos,
                                 $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                                $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                                $solicitud->descripcion,
                             );
                         }
                     }
@@ -485,7 +547,7 @@ class GacSolicitudController extends BaseController
                 $solicitud->id, 
                 $solicitud->importe_pesos,
                 $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                $solicitud->descripcion,
                 $request->aprueba === true ? "La solicitud fue aprobada por: {$request->usuario_nombre}." : "La solicitud fue rechazada por: {$request->usuario_nombre}., por favor inicia una nueva solicitud" 
             );
             /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -496,7 +558,7 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                        $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                        $solicitud->descripcion,
                         $request->aprueba === true ?  "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue aprobada por: {$request->usuario_nombre}." : "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue rechazada por: {$request->usuario_nombre}." , 
                     );
                 }
@@ -516,14 +578,16 @@ class GacSolicitudController extends BaseController
     }
 
     public function cambioEnSolicitudAutorizador(Request $request){
-        /* try{ */
+        try{
             $input = $request->all();
             $validator = Validator::make($input, [
                 'id_solicitud' => 'required', // el id de la solicitud que se va a aprobar
                 'id_usuario' => 'required', // el id del usuario que aprueba o rechaza la solicitud
                 'aprueba' => 'required', // para saber si aprueba o no  la solicitud y no andar ahi repitiendo cosas
                 'usuario_nombre' => 'required',
-                'comentarios' => 'required'
+                'comentarios' => 'required', 
+                'requiere_doumentos' => 'required',
+                'requiere_aprobacion_revisor' => 'required'
             ]);
             if ($validator->fails()) {
                 return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
@@ -549,7 +613,7 @@ class GacSolicitudController extends BaseController
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                    $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                    $solicitud->descripcion,
                     "La solicitud fue rechazada por: {$request->usuario_nombre}., por favor inicia una nueva solicitud" 
                 );
                 /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -560,7 +624,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                            $solicitud->descripcion,
                            "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue rechazada por: {$request->usuario_nombre}." , 
                         );
                     }
@@ -576,7 +640,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioAutorizador->nombre .' ' . $usuarioAutorizador->apellidos,
-                            $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                            $solicitud->descripcion,
                             "La solicitud fue rechazada por: {$request->usuario_nombre}." 
                         );
                     }
@@ -601,9 +665,12 @@ class GacSolicitudController extends BaseController
             $solicitud->id_estatus = 2;
             $solicitud->comentarios_usuario_autorizador = $request->comentarios;
             $solicitud->save();
+            
             $documentos = GacDocumentosSolicitud::where('id_solicitud',$solicitud->id)->get()->all();
+            
             /* Flujo cuando la solicitud no tiene documentos */
-            if(count($documentos) === 0){
+            if(count($documentos) === 0 && $request->requiere_doumentos === 1 ){
+
                 $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
                 $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
                 /* Se manda mensaje al  creador*/
@@ -612,9 +679,10 @@ class GacSolicitudController extends BaseController
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                    $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor, 
+                    $solicitud->descripcion, 
                     "La solicitud fue aprobada por: {$request->usuario_nombre}, por favor carga los documentos requeridos para continuar con el proceso" 
                 );
+                
                 /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
                 if($usuarioBeneficiario){
                     if($usuarioCreador->id_usuario !== $usuarioBeneficiario->id_usuario){
@@ -623,7 +691,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                            $solicitud->descripcion,
                            "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue aprobada por: {$request->usuario_nombre}, por favor carga los documentos requeridos para continuar con el proceso" , 
                         );
                     }
@@ -640,27 +708,51 @@ class GacSolicitudController extends BaseController
             }
 
             /* Flujo cuando la solicitud ya trae documentos */
-            if(count($documentos) > 0){
+            if(count($documentos) > 0 || $request->requiere_doumentos === 0){
+                
                 $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
                 $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
-
                 $UsuariosRevisores = GacPerfilSolicitud::where('id_perfil', 1)->get()->all();
-                foreach ($UsuariosRevisores as $key => $value) {
-                    $usuarioNextRevisor =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
-                    if($usuarioNextRevisor){
-                        $this->enviaMensajeSolicitaAutorizacionDos(
-                            $usuarioNextRevisor, 
+                
+                if($request->requiere_aprobacion_revisor === 1){
+                    foreach ($UsuariosRevisores as $key => $value) {
+                        $usuarioNextRevisor =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
+                        if($usuarioNextRevisor){
+                            $this->enviaMensajeSolicitaAutorizacionDos(
+                                $usuarioNextRevisor, 
+                                $solicitud->id, 
+                                $solicitud->importe_pesos,
+                                $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
+                                $solicitud->descripcion,
+                            );
+                        }
+                    }
+                }
+
+                if($request->requiere_aprobacion_revisor === 0){
+                    $solicitud->id_usuario_revisor = $request->id_usuario;
+                    $solicitud->fecha_id_usuario_revisor = now();
+                    $solicitud->autorizo_usuario_revisor = 1;
+                    $solicitud->comentarios_usuario_revisor = $request->comentarios;
+                    $solicitud->save();
+                    $UsuariosPagadores = GacPerfilSolicitud::where('id_perfil', 3)->get()->all();
+                    foreach ($UsuariosPagadores as $key => $value) {
+                        $usuarioNextPagador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
+    
+                        $this->enviaMensajePagador(
+                            $usuarioNextPagador, 
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                            $solicitud->descripcion,
+                            $request->usuario_nombre
                         );
                     }
                 }
-                
+
                 /* Se registra el evento */
-                $setEvnto['evento'] = 'Aprobación de solicitud con documentos';
-                $setEvnto['descripcion'] = "El usuario autorizador {$request->usuario_nombre}, ha aprobado la solicitud con documentos ";
+                $setEvnto['evento'] = $request->requiere_doumentos === 0 ?  'Aprobación de solicitud' : 'Aprobación de solicitud con documentos';
+                $setEvnto['descripcion'] = $request->requiere_doumentos === 0 ? "El usuario autorizador {$request->usuario_nombre}, ha aprobado la solicitud" : "El usuario autorizador {$request->usuario_nombre}, ha aprobado la solicitud con documentos ";
                 $setEvnto['id_usuario'] = $request->id_usuario;
                 $setEvnto['tipo'] = 'Solicitud aprobación con documentos';
                 $setEvnto['id_tabla'] = 'gac_solicitud';
@@ -669,11 +761,9 @@ class GacSolicitudController extends BaseController
                 return $this->sendResponse('Se ha aprobado la solicitud con exito');
             }
 
-
-
-        /* } catch (\Throwable $th) {
+        } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);
-        } */
+        }
     }
 
     public function solicitaAprobacionDireccionGeneral(Request $request){
@@ -702,7 +792,7 @@ class GacSolicitudController extends BaseController
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                    $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                    $solicitud->descripcion,
                 );
             }
              /* Se registra el evento */
@@ -720,9 +810,8 @@ class GacSolicitudController extends BaseController
         }
     }
 
-
     public function notificaRevisoresFiscales (Request $request){
-       /*  try{ */
+        try{
             $input = $request->all();
             $validator = Validator::make($input, [
                 'id_solicitud' => 'required'
@@ -743,16 +832,47 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                        $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                        $solicitud->descripcion,
                     );
                 }
             }
             return $this->sendResponse('Exito al notificar a los revisores');
-        /* }catch(\Throwable $th){
+        }catch(\Throwable $th){
             return $this->sendError('Error', $th, 500);
-        } */
+        }
     }
 
+    public function notificaRevisoresFiscalesAutorizador (Request $request){
+        try{
+            $input = $request->all();
+            $validator = Validator::make($input, [
+                'id_solicitud' => 'required'
+            ]);
+            if ($validator->fails()) {
+                return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
+            }
+            $solicitud = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
+            $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
+
+            $UsuariosRevisores = GacPerfilSolicitud::where('id_perfil', 2)->get()->all();
+            foreach ($UsuariosRevisores as $key => $value) {
+                $usuarioNextRevisor =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
+                if($usuarioNextRevisor){
+                    $this->enviaMensajeSolicitaAutorizacionDos(
+                        $usuarioNextRevisor, 
+                        $solicitud->id, 
+                        $solicitud->importe_pesos,
+                        $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
+                        $solicitud->descripcion,
+                    );
+                }
+            }
+            return $this->sendResponse('Exito al notificar a los revisores');
+        }catch(\Throwable $th){
+            return $this->sendError('Error', $th, 500);
+        }
+    }
 
     public function handleDocumentosRevisorRevisa(Request $request){
         try {
@@ -809,7 +929,7 @@ class GacSolicitudController extends BaseController
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                    $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                    $solicitud->descripcion,
                     "Los documentos de la solicitud fuerón rechazados por los revisores fiscales, con los siguientes comentarios  '{$request->comentarios_supervisor}'" 
                 );
                 /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -820,7 +940,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                            $solicitud->descripcion,
                            "Los documentos para la solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos} fuerón rechazados por los revisores fiscales." , 
                         );
                     }
@@ -839,7 +959,6 @@ class GacSolicitudController extends BaseController
             return $this->sendError('Error', $th, 500);
         }
     }
-
 
     public function cambioEnSolicitudRevisor(Request $request){
         try{
@@ -875,7 +994,7 @@ class GacSolicitudController extends BaseController
                     $solicitud->id, 
                     $solicitud->importe_pesos,
                     $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                    $usuarioBeneficiario  ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                    $solicitud->descripcion,
                     "La solicitud fue rechazada por el revisor: {$request->usuario_nombre}, con los siguientes comentarios ({$request->comentarios})., por favor inicia una nueva solicitud" 
                 );
                 /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -886,7 +1005,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                            $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                            $solicitud->descripcion,
                            "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue rechazada por el revisor: {$request->usuario_nombre}, con los siguientes comentarios ({$request->comentarios})." , 
                         );
                     }
@@ -901,7 +1020,7 @@ class GacSolicitudController extends BaseController
                             $solicitud->id, 
                             $solicitud->importe_pesos,
                             $usuarioAutorizador->nombre .' ' . $usuarioAutorizador->apellidos,
-                            $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                            $solicitud->descripcion,
                             "La solicitud fue rechazada por: {$request->usuario_nombre}." 
                         );
                     }
@@ -935,7 +1054,7 @@ class GacSolicitudController extends BaseController
                 $solicitud->id, 
                 $solicitud->importe_pesos,
                 $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                $solicitud->descripcion,
                 "La solicitud fue aprobada por el  {$request->usuario_nombre}" 
             );
             /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -946,7 +1065,7 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                        $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                        $solicitud->descripcion,
                        "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue aprobada por el revisor: {$request->usuario_nombre}" , 
                     );
                 }
@@ -961,7 +1080,7 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                        $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                        $solicitud->descripcion,
                         $request->usuario_nombre
                     );
 
@@ -981,7 +1100,6 @@ class GacSolicitudController extends BaseController
             return $this->sendError('Error', $th, 500);
         }
     }
-
 
     public function cambioEnSolicitudPagador(Request $request){
         try{
@@ -1016,7 +1134,7 @@ class GacSolicitudController extends BaseController
                 $solicitud->id, 
                 $solicitud->importe_pesos,
                 $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                $usuarioBeneficiario ? $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos : $solicitud->proveedor,
+                $solicitud->descripcion,
                 "La solicitud fue aprobada por el pagador: {$request->usuario_nombre}, el proceso ha terminado" 
             );
             /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
@@ -1027,7 +1145,7 @@ class GacSolicitudController extends BaseController
                         $solicitud->id, 
                         $solicitud->importe_pesos,
                         $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
-                        $usuarioBeneficiario->nombre .' ' . $usuarioBeneficiario->apellidos,
+                        $solicitud->descripcion,
                        "La solicitud creada por el usuario: {$usuarioCreador->nombre} {$usuarioCreador->apellidos}, fue aprobada por el pagador: {$request->usuario_nombre}, el proceso ha terminado" , 
                     );
                 }
@@ -1062,9 +1180,7 @@ class GacSolicitudController extends BaseController
         }
     }
 
-
-    public function generarZipSolicitud(Request $request)
-    {
+    public function generarZipSolicitud(Request $request){
         try {
             $input = $request->all();
             $validator = Validator::make($input, [
@@ -1128,7 +1244,7 @@ class GacSolicitudController extends BaseController
             if ($validator->fails()) {
                 return $this->sendError('El id de la solicitud es requerido', $validator->errors(), 500);
             }
-            $firma =  DB::connection('mysql_dirac')->table('dcmx_firmas_dirac')->where('id_usuario', $request->id_usuario )->where('clave', $request->firma )->get()->first();
+            $firma =  DB::connection('mysql_dirac')->table('dcmx_firmas_dirac')->where('clave', $request->firma )->get()->first();
             if (!$firma) {
                 return $this->sendError('La clave proporcionada es incorrecta, el acceso a este módulo es denegado', [], 404);
             }
@@ -1138,5 +1254,175 @@ class GacSolicitudController extends BaseController
         }
     }
 
+    public function atualizaTipoSolicitud(Request $request){
+        try {
+            $input = $request->all();
+            $validator = Validator::make($input, [
+                'id_solicitud' => 'required',
+                'id_tipo_solicitud' => 'required'
+            ]);
+            if ($validator->fails()) {
+                return $this->sendError('El id de la solicitud es requerido', $validator->errors(), 500);
+            }
+            $solicitud = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            if(!$solicitud){
+                return $this->sendError('La solicitud que desea actualizar no existe', [], 404);
+            }
+            $solicitud->id_tipo_solicitud = $request->id_tipo_solicitud;
+            $solicitud->save();
+            return $this->sendResponse('Exito al actualizar el tipo de solicitud');
+        } catch (\Throwable $th) {
+            return $this->sendError('Error al actualizar el tipo de la solicitud', $th, 500);
+        }
+    }
+
+
+    public function actualizaIdConcepto(Request $request){
+        try {
+            $input = $request->all();
+            $validator = Validator::make($input, [
+                'id_solicitud' => 'required',
+                'id_concepto' => 'required'
+            ]);
+            if ($validator->fails()) {
+                return $this->sendError('El id de la solicitud es requerido', $validator->errors(), 500);
+            }
+            $solicitud = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            if(!$solicitud){
+                return $this->sendError('La solicitud que desea actualizar no existe', [], 404);
+            }
+            $solicitud->id_concepto = $request->id_concepto;
+            $solicitud->save();
+            return $this->sendResponse('Exito al actualizar el concepto');
+        } catch (\Throwable $th) {
+            return $this->sendError('Error al actualizar el concepto', $th, 500);
+        }
+    }
+
+    public function solicitaCargaDocumental(Request $request){
+        try {
+            $input = $request->all();
+            $validator = Validator::make($input, [
+                'id_solicitud' => 'required'
+            ]);
+            if ($validator->fails()) {
+                return $this->sendError('El id de la solicitud es requerido', $validator->errors(), 500);
+            }
+            $solicitud = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            if(!$solicitud){
+                return $this->sendError('La solicitud que desea actualizar no existe', [], 404);
+            }
+            $solicitud->id_estatus = 6;
+            $solicitud->save();
+            $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
+            $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
+            /* Se manda mensaje al  creador*/
+            $this->enviaMensajeCreadorAprobacion(
+                $usuarioCreador, 
+                $solicitud->id, 
+                $solicitud->importe_pesos,
+                $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
+                $solicitud->descripcion, 
+                "Por favor carga los documentos requeridos para continuar con el proceso" 
+            );    
+            /* Si el solicitante y el beneficiario son personas diferentes al beneficiario tambien se le manda mensaje */
+            if($usuarioBeneficiario){
+                if($usuarioCreador->id_usuario !== $usuarioBeneficiario->id_usuario){
+                    $this->enviaMensajeBeneficiarioAprobacion(
+                        $usuarioBeneficiario, 
+                        $solicitud->id, 
+                        $solicitud->importe_pesos,
+                        $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
+                        $solicitud->descripcion,
+                        "Por favor carga los documentos requeridos para continuar con el proceso" , 
+                    );
+                }
+            }
+        } catch (\Throwable $th) {
+            return $this->sendError('Error al Solicitar la carga documental', $th, 500);
+        }
+    }
+
+
+    public function notificaNomina(Request $request){
+        /* try{ */
+            $input = $request->all();
+            $validator = Validator::make($input, [
+                'id_solicitud' => 'required', 
+                'id_usuario_notifica' => 'required',
+                'importe' => 'required',
+            ]);
+            if ($validator->fails()) {
+                return $this->sendError('Todos los campos son requeridos', $validator->errors(), 500);
+            }
+            $solicitud = GacSolicitud::where('id',$request->id_solicitud)->get()->first();
+            $usuarioCreador =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->solicita )->where('status', 1 )->get()->first();
+            $usuarioBeneficiario =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $solicitud->beneficiario )->where('status', 1 )->get()->first();
+
+            $usuariosNomina = GacPerfilSolicitud::where('id_perfil', 4)->get()->all();
+            foreach ($usuariosNomina as $key => $value) {
+                $usuaruiNextNomina =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
+                if($usuaruiNextNomina){
+                    $this->enviaMensajeSolicitaDescuentoNomina(
+                        $usuaruiNextNomina, 
+                        $solicitud->id, 
+                        $request->importe,
+                        $usuarioCreador->nombre .' ' . $usuarioCreador->apellidos,
+                        $solicitud->descripcion,
+                    );
+                    $notificaion['id_solicitud'] = $solicitud->id;
+                    $notificaion['importe'] = $request->importe;
+                    $notificaion['fecha_registro'] = now();
+                    $notificaion['id_usuario_notifica'] = $request->id_usuario_notifica;
+                    $notificaion['id_usuario_recibe_notificacion'] = $usuaruiNextNomina->id_usuario;
+                    GacNotificaNomina::create($notificaion);
+                }
+            }
+            return $this->sendResponse('Exito al notificar a nomina');
+        /* }catch(\Throwable $th){
+            return $this->sendError('Error', $th, 500);
+        } */
+    }
+
+
+    public function notificaPorDias(){
+        /* try{ */
+            $solicitudesDias =  DB::select('
+                select a.*,b.dias_notifica_pago, DATEDIFF(NOW(), a.fecha_id_usuario_revisor) AS dias_transcurridos
+                from gac_solicitud a 
+                inner join gac_cat_tipo_solicitud b on a.id_tipo_solicitud = b.id
+                where b.dias_notifica_pago != ? and DATEDIFF(NOW(), a.fecha_id_usuario_revisor) >= b.dias_notifica_pago', [0]
+            );
+            if(count($solicitudesDias) === 0){
+                return $this->sendResponse(true);
+            }
+            foreach($solicitudesDias as $key => $value){
+                $idCodificado = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
+                $solicitudesDias[$key]->id = $idCodificado;
+            }
+            $usuariosNomina = GacPerfilSolicitud::where('id_perfil', 4)->get()->all();
+            foreach ($usuariosNomina as $key => $value) {
+                $usuaruiNextNomina =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
+                if($usuaruiNextNomina){
+                    $nombre = $usuaruiNextNomina->nombre . ' ' . $usuaruiNextNomina->apellidos;
+                    $idUsuario = $this->cifrarTexto($usuaruiNextNomina->id_usuario, env('CLAVE_HASHIG'));
+                    Mail::to(/* $value->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudNotificaNominaGac(
+                        $solicitudesDias, 
+                        $nombre,
+                        $idUsuario
+                    ));
+                    $to = "+525635309370"/* "+52{$value->telefono}" */;
+                    $body = "Hola {$nombre}, arjion te notifica";
+                    $body1 = "Se han enviado a tu correo las solicitudes pendientes de descuento, por favor entra a tu correo electronico para revisar con detalle";
+                    $this->senWhats->sendChatMessage($to, $body);
+                    $this->senWhats->sendChatMessage($to, $body1);
+                }
+            }
+            return $this->sendResponse(true);
+       /*  }catch(\Throwable $th){
+            return $this->sendError('Error', $th, 500);
+        } */
+    }
 
 }
+

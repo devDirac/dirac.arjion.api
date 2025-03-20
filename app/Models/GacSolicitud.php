@@ -23,6 +23,7 @@ class GacSolicitud extends Model
         'banco',
         'cuenta',
         'clabe',
+        'fecha_pago',
         'fecha_solicitud',
         'id_estatus',
         'proyecto_sr',
@@ -40,6 +41,8 @@ class GacSolicitud extends Model
         'id_usuario_pagada',
         'fecha_id_usuario_pagada',
         'autorizo_usuario_pagada',
-        'comentarios_usuario_pagada'
+        'comentarios_usuario_pagada',
+        'quincenas_numero',
+        'quincenas_valor'
     ];
 }
