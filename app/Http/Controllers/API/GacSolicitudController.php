@@ -168,7 +168,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "DAF solicita descuento vía nomina";
         $body2 = 'Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -193,7 +193,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -218,7 +218,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -244,7 +244,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Solicitud de gasto aprobada por el revisor fiscal";
         $body2 = "El revisor fiscal {$nombreRevisor} ha aprobado la solicitud de gasto, detalle en el siguiente link:";
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -269,7 +269,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = $mensaje;
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -294,7 +294,7 @@ class GacSolicitudController extends BaseController
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Comprobante de solicitud de gasto a comprobar";
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
-        $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+        $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
         $this->senWhats->sendChatMessage($to, $body1);
         $this->senWhats->sendChatMessage($to, $body2);
@@ -319,7 +319,7 @@ class GacSolicitudController extends BaseController
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = $mensaje;
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
-            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+            $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
             $this->senWhats->sendChatMessage($to, $body);
             $this->senWhats->sendChatMessage($to, $body1);
             $this->senWhats->sendChatMessage($to, $body2);
@@ -344,7 +344,7 @@ class GacSolicitudController extends BaseController
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = "El usuario ".  $solicitudsolicitante . ", creo una solicitud para ti, "."Comprobante de solicitud de gasto a comprobar";
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
-            $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
+            $bodyLink = "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
             $this->senWhats->sendChatMessage($to, $body);
             $this->senWhats->sendChatMessage($to, $body1);
             $this->senWhats->sendChatMessage($to, $body2);
