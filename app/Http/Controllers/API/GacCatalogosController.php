@@ -50,7 +50,7 @@ class GacCatalogosController extends BaseController
 
     public function getGacProyectosSgi(){
         try {
-           $proyectos_sgi =  DB::connection('mysql_dirac')->table('proyectos_sgi')->where('dashboard', 1)->get()->all();
+           $proyectos_sgi =  DB::connection('mysql_dirac')->table('proyectos_sgi')->where('dashboard', 1)->where('estatus', 1)->get()->all();
            return $this->sendResponse($proyectos_sgi);
         } catch (\Throwable $th) {
             return $this->sendError('Error', $th, 500);

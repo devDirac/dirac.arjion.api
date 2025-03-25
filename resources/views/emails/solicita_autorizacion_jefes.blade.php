@@ -31,7 +31,7 @@ Descripción de la solicitud:  {{$solicitudbeneficiario}}
 
 <br/><br/>
 
-@component('mail::button', ['url' => "http://localhost:3000/gac-detalle-solicitud?id={$idUsuario}&id_solicitud={$id}"])
+@component('mail::button', ['url' => "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsuario}&id_solicitud={$id}"])
 Ver solicitud 
 @endcomponent
 

@@ -135,7 +135,7 @@ class GacSolicitudController extends BaseController
         foreach ($organigrama as $key => $value) {
             $autorizadorInsert['id_usuario'] = $value['id_usuario'];
             $autorizadorInsert['autorizo'] = null;
-            if($value['id_usuario'] === 2){
+            if($value['id_usuario'] === 2  && count($organigrama)>1 ){
                 $autorizadorInsert['requiere_aprobacion'] = false;
             }else{
                 $autorizadorInsert['requiere_aprobacion'] = true;
@@ -157,7 +157,7 @@ class GacSolicitudController extends BaseController
         Mail::to(/* $user->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
-                "DAF solicita descuento via nomina",
+                "DAF solicita descuento vía nomina",
                 "Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud", 
                 $idSolicitud_,
                 $solicitudimporte,
@@ -166,7 +166,7 @@ class GacSolicitudController extends BaseController
             ));            
         $to = "+525635309370"/* "+52{$user->telefono}" */;
         $body = "Hola {$nombre}, arjion te notifica";
-        $body1 = "DAF solicita descuento via nomina";
+        $body1 = "DAF solicita descuento vía nomina";
         $body2 = 'Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud link:';
         $bodyLink = "http://localhost:3000/gac-detalle-solicitud?id={$idUsiario}&id_solicitud={$idSolicitud_}";
         $this->senWhats->sendChatMessage($to, $body);
@@ -1345,7 +1345,7 @@ class GacSolicitudController extends BaseController
 
 
     public function notificaNomina(Request $request){
-        /* try{ */
+        try{ 
             $input = $request->all();
             $validator = Validator::make($input, [
                 'id_solicitud' => 'required', 
@@ -1379,14 +1379,14 @@ class GacSolicitudController extends BaseController
                 }
             }
             return $this->sendResponse('Exito al notificar a nomina');
-        /* }catch(\Throwable $th){
+        }catch(\Throwable $th){
             return $this->sendError('Error', $th, 500);
-        } */
+        }
     }
 
 
     public function notificaPorDias(){
-        /* try{ */
+         try{ 
             $solicitudesDias =  DB::select('
                 select a.*,b.dias_notifica_pago, DATEDIFF(NOW(), a.fecha_id_usuario_revisor) AS dias_transcurridos
                 from gac_solicitud a 
@@ -1400,7 +1400,7 @@ class GacSolicitudController extends BaseController
                 $idCodificado = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
                 $solicitudesDias[$key]->id = $idCodificado;
             }
-            $usuariosNomina = GacPerfilSolicitud::where('id_perfil', 4)->get()->all();
+            $usuariosNomina = GacPerfilSolicitud::where('id_perfil', 2)->get()->all();
             foreach ($usuariosNomina as $key => $value) {
                 $usuaruiNextNomina =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->id_usuario )->where('status', 1 )->get()->first();
                 if($usuaruiNextNomina){
@@ -1419,9 +1419,9 @@ class GacSolicitudController extends BaseController
                 }
             }
             return $this->sendResponse(true);
-       /*  }catch(\Throwable $th){
+	}catch(\Throwable $th){
             return $this->sendError('Error', $th, 500);
-        } */
+        } 
     }
 
 }

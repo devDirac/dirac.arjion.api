@@ -18,8 +18,8 @@ este es un listado de las solicitudes a las que se le requiere un descuento por 
             <td style="border: 1px solid #ddd; padding: 8px;">🚫</td>
             <td style="border: 1px solid #ddd; padding: 8px;">${{ number_format($solicitud->importe, 2) }}</td>
             <td style="border: 1px solid #ddd; padding: 8px;">
-                @component('mail::button', ['url' => "http://localhost:3000/gac-detalle-solicitud?id={$idUsuario}&id_solicitud={$solicitud->id}"])
-                    Ver solicitud 
+                @component('mail::button', ['url' => "https://dirac.arjion.com/gac-detalle-solicitud?id={$idUsuario}&id_solicitud={$solicitud->id}"])
+                    Ver solicitud
                 @endcomponent
             </td>
         </tr>

@@ -70,6 +70,7 @@ class GacUserController extends BaseController
                 $solicitudes[$key]->autorizadores = $autorizadores;
                 $documentos = GacDocumentosSolicitud::where('id_solicitud',$value->id)->get()->all();
                 $solicitudes[$key]->documentos = $documentos;
+		$solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
             }
             return $this->sendResponse($solicitudes);
         } catch (\Throwable $th) {
@@ -117,7 +118,7 @@ class GacUserController extends BaseController
                 $area =  DB::connection('mysql_dirac')->table('cat_areas')->where('id', $usuario->id_area )->get()->first();
                 $solicitudes[$key]->area = $area ? $area->nombre : null;
                 $solicitudes[$key]->nombre_solicitante = $usuario->nombre . ' ' . $usuario->apellidos;
-                
+                $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
 
             }
             return $this->sendResponse($solicitudes);
@@ -213,7 +214,8 @@ class GacUserController extends BaseController
                     $autorizadores[$keyAutorizadores]->nombreUsuario = $usuarioAutorizador->nombre .' '. $usuarioAutorizador->apellidos;
                 }
                 $solicitudes[$key]->autorizadores = $autorizadores;
-                $area =  DB::connection('mysql_dirac')->table('cat_areas')->where('id', $usuario->id_area )->get()->first();
+	        $usuario_ =  DB::connection('mysql_dirac')->table('usuarios_dirac')->where('id_usuario', $value->solicita )->get()->first();
+	        $area =  DB::connection('mysql_dirac')->table('cat_areas')->where('id', $usuario_->id_area )->get()->first();
                 $solicitudes[$key]->area = $area ? $area->nombre : null;
                 $solicitudes[$key]->nombre_solicitante = $usuario->nombre . ' ' . $usuario->apellidos;
                 $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
