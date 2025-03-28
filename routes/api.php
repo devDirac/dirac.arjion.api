@@ -11,6 +11,8 @@ use App\Http\Controllers\API\GacDocumentosCotroller;
 use App\Http\Controllers\API\GacUserController;
 use App\Http\Controllers\API\GacSolicitudController;
 use App\Http\Controllers\API\GacProveedoresController;
+use App\Http\Controllers\API\AsistenteInteligenteController;
+
 /* info carrusel and banner */
 Route::post('setInfoBanner', [BannerCarruselInfoController::class, 'setInfoBanner']);
 Route::get('getInfoBanner', [BannerCarruselInfoController::class, 'getInfoBanner']);
@@ -100,3 +102,7 @@ Route::post('solicitaCargaDocumental', [GacSolicitudController::class, 'solicita
 Route::post('notificaRevisoresFiscalesAutorizador', [GacSolicitudController::class, 'notificaRevisoresFiscalesAutorizador']);
 Route::post('notificaNomina', [GacSolicitudController::class, 'notificaNomina']);
 Route::get('notificaPorDias', [GacSolicitudController::class, 'notificaPorDias']);
+/* Asistente inteligente*/
+Route::post('guardaPregunta', [AsistenteInteligenteController::class, 'almacenarContenidoConEmbedding']);
+Route::post('chat', [AsistenteInteligenteController::class, 'chat']);
+Route::post('setPreguntaCorrecta', [AsistenteInteligenteController::class, 'setPreguntaCorrecta']);
