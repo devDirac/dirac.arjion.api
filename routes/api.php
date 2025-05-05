@@ -12,6 +12,7 @@ use App\Http\Controllers\API\GacUserController;
 use App\Http\Controllers\API\GacSolicitudController;
 use App\Http\Controllers\API\GacProveedoresController;
 use App\Http\Controllers\API\AsistenteInteligenteController;
+use App\Http\Controllers\API\FacturaValidacionController;
 
 /* info carrusel and banner */
 Route::post('setInfoBanner', [BannerCarruselInfoController::class, 'setInfoBanner']);
@@ -106,3 +107,5 @@ Route::get('notificaPorDias', [GacSolicitudController::class, 'notificaPorDias']
 Route::post('guardaPregunta', [AsistenteInteligenteController::class, 'almacenarContenidoConEmbedding']);
 Route::post('chat', [AsistenteInteligenteController::class, 'chat']);
 Route::post('setPreguntaCorrecta', [AsistenteInteligenteController::class, 'setPreguntaCorrecta']);
+/* valida factura */
+Route::post('validar-factura', [FacturaValidacionController::class, 'validar']);
