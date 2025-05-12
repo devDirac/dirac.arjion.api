@@ -103,6 +103,8 @@ Route::post('solicitaCargaDocumental', [GacSolicitudController::class, 'solicita
 Route::post('notificaRevisoresFiscalesAutorizador', [GacSolicitudController::class, 'notificaRevisoresFiscalesAutorizador']);
 Route::post('notificaNomina', [GacSolicitudController::class, 'notificaNomina']);
 Route::get('notificaPorDias', [GacSolicitudController::class, 'notificaPorDias']);
+Route::get('notificaPendientes', [GacSolicitudController::class, 'notificaPendientes']);
+Route::post('cancelaSolicitud', [GacSolicitudController::class, 'cancelaSolicitud']);
 /* Asistente inteligente*/
 Route::post('guardaPregunta', [AsistenteInteligenteController::class, 'almacenarContenidoConEmbedding']);
 Route::post('chat', [AsistenteInteligenteController::class, 'chat']);
