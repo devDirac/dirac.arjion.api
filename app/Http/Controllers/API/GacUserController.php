@@ -70,7 +70,7 @@ class GacUserController extends BaseController
                 $solicitudes[$key]->autorizadores = $autorizadores;
                 $documentos = GacDocumentosSolicitud::where('id_solicitud',$value->id)->get()->all();
                 $solicitudes[$key]->documentos = $documentos;
-		$solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
+		$solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
             }
             return $this->sendResponse($solicitudes);
         } catch (\Throwable $th) {
@@ -118,7 +118,7 @@ class GacUserController extends BaseController
                 $area =  DB::connection('mysql_dirac')->table('cat_areas')->where('id', $usuario->id_area )->get()->first();
                 $solicitudes[$key]->area = $area ? $area->nombre : null;
                 $solicitudes[$key]->nombre_solicitante = $usuario->nombre . ' ' . $usuario->apellidos;
-                $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
+                $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
 
             }
             return $this->sendResponse($solicitudes);
@@ -154,7 +154,7 @@ class GacUserController extends BaseController
             if ($validator->fails()) {
                 return $this->sendError('Todos los valores son requeridos', $validator->errors());
             }
-            $usuario = $this->descifrarTexto($request->id,env('CLAVE_HASHIG'));
+            $usuario = $this->descifrarTexto($request->id,env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
             return $this->sendResponse($usuario);
         } catch (\Throwable $th) {
             return $this->sendError('Error al al obtener el id de usuario', $th, 500);
@@ -218,10 +218,10 @@ class GacUserController extends BaseController
 	        $area =  DB::connection('mysql_dirac')->table('cat_areas')->where('id', $usuario_->id_area )->get()->first();
                 $solicitudes[$key]->area = $area ? $area->nombre : null;
                 $solicitudes[$key]->nombre_solicitante = $usuario->nombre . ' ' . $usuario->apellidos;
-                $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG'));
+                $solicitudes[$key]->id_hash = $this->cifrarTexto($value->id, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
             }
             $usuario->solicitudesCreadas = $solicitudes;
-            $usuario->id_hash = $this->cifrarTexto($usuario->id_usuario, env('CLAVE_HASHIG'));
+            $usuario->id_hash = $this->cifrarTexto($usuario->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
             $usuario->fecha = now();
             return $this->sendResponse($usuario);
         } catch (\Throwable $th) {
