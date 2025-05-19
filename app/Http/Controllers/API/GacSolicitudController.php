@@ -152,7 +152,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to( $user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "DAF solicita descuento vía nomina",
@@ -162,7 +162,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $descripcion
             ));            
-        $to =  '+525635309370'/* "+52{$user->telefono}" */ ;
+        $to =  "+52{$user->telefono}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "DAF solicita descuento vía nomina";
         $body2 = 'Se requiere de tu atención para el descuento correspondiente a la siguiente solicitud link:';
@@ -177,7 +177,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user['id_usuario'], env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user['nombre'] . ' ' . $user['apellidos'];
-        Mail::to(/* $user['correo'] */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudGac(
+        Mail::to($user['correo'])->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user['nombre'] . ' ' . $user['apellidos'], 
                 "Validacion de gasto a comprobar" , 
@@ -187,7 +187,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));            
-        $to = '+525635309370'/* "+52{$user['telefono']}" */;
+        $to = "+52{$user['telefono']}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
@@ -202,7 +202,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to($user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Validacion de gasto a comprobar" , 
@@ -212,7 +212,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));            
-        $to = '+525635309370'/* "+52{$user->telefono}" */;
+        $to = "+52{$user->telefono}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Validacion de gasto a comprobar";
         $body2 = 'Se requiere de tu atención para la aprobación de una solicitud de gastos, ingresa al siguiente link:';
@@ -228,7 +228,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to( $user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 $revisor_antes_pagador === 0 ? "Solicitud de gasto aprobada por el revisor fiscal" : "Solicitud aprobada por el autorizador", 
@@ -238,7 +238,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));            
-        $to ='+525635309370'/* "+52{$user->telefono}" */;
+        $to ="+52{$user->telefono}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = $revisor_antes_pagador === 0 ?  "Solicitud de gasto aprobada por el revisor fiscal" : "Solicitud aprobada por el autorizador";
         $body2 = $revisor_antes_pagador === 0 ?  "El revisor fiscal {$nombreRevisor} ha aprobado la solicitud de gasto, detalle en el siguiente link:" : "El autorizador ha aprobado la solicitud de gasto, se requiere de tu atención para establecer el gasto como pagado, detalle en el siguiente link:";
@@ -253,7 +253,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to($user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Este es el comprobante de tu solicitud ", 
@@ -263,7 +263,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));
-        $to = '+525635309370'/* "+52{$user->telefono}" */;
+        $to = "+52{$user->telefono}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = $mensaje;
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
@@ -278,7 +278,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to( 'cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to( $user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Comprobante de solicitud de gasto a comprobar" , 
@@ -288,7 +288,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));
-        $to = '+525635309370'/* "+52{$user->telefono}" */;
+        $to = "+52{$user->telefono}";
         $body = "Hola {$nombre}, arjion te notifica";
         $body1 = "Comprobante de solicitud de gasto a comprobar";
         $body2 = 'Este es el comprobante de tu solicitud ingresa al siguiente link:';
@@ -303,7 +303,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to($user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "Este es el comprobante de tu solicitud ", 
@@ -313,7 +313,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));
-            $to = '+525635309370'/* "+52{$user->telefono}" */;
+            $to = "+52{$user->telefono}";
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = $mensaje;
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
@@ -328,7 +328,7 @@ class GacSolicitudController extends BaseController
         $idUsiario = $this->cifrarTexto($user->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $idSolicitud_ = $this->cifrarTexto($idSolicitud, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
         $nombre = $user->nombre . ' ' . $user->apellidos;
-        Mail::to('cruz.sergio@dirac.mx'/* $user->correo */)->send(new CorreoSolicitudGac(
+        Mail::to($user->correo)->send(new CorreoSolicitudGac(
                 $idUsiario,
                 $user->nombre . ' ' . $user->apellidos, 
                 "El usuario ".  $solicitudsolicitante . ", creo una solicitud para ti, "."Comprobante de solicitud de gasto a comprobar" , 
@@ -338,7 +338,7 @@ class GacSolicitudController extends BaseController
                 $solicitudsolicitante,
                 $solicitudbeneficiario
             ));
-            $to = '+525635309370'/* "+52{$user->telefono}"*/;
+            $to ="+52{$user->telefono}";
             $body = "Hola {$nombre}, arjion te notifica";
             $body1 = "El usuario ".  $solicitudsolicitante . ", creo una solicitud para ti, "."Comprobante de solicitud de gasto a comprobar";
             $body2 =  "Este es el comprobante de tu solicitud, ingresa al siguiente link: ";
@@ -1474,12 +1474,12 @@ class GacSolicitudController extends BaseController
                 if($usuaruiNextNomina){
                     $nombre = $usuaruiNextNomina->nombre . ' ' . $usuaruiNextNomina->apellidos;
                     $idUsuario = $this->cifrarTexto($usuaruiNextNomina->id_usuario, env('CLAVE_HASHIG','P$7xR9!kL2wZ#v8a-arjion'));
-                    Mail::to(/* $value->correo */'cruz.sergio@dirac.mx')->send(new CorreoSolicitudNotificaNominaGac(
+                    Mail::to($value->correo)->send(new CorreoSolicitudNotificaNominaGac(
                         $solicitudesDias, 
                         $nombre,
                         $idUsuario
                     ));
-                    $to = '+525635309370'/* "+52{$value->telefono}" */;
+                    $to ="+52{$value->telefono}";
                     $body = "Hola {$nombre}, arjion te notifica";
                     $body1 = "Se han enviado a tu correo las solicitudes pendientes de descuento, por favor entra a tu correo electronico para revisar con detalle";
                     $this->senWhats->sendChatMessage($to, $body);
